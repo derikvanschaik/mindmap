@@ -83,6 +83,13 @@ def update_color(chosen_color, text_color_dict):
 def create_canvas(key):
     return sg.Graph((5000,5000), (0,0),(MAX_X,MAX_Y),background_color="white", enable_events=True, key=key)
 
+def create_text_element(canvas, text, selected_area, cur_txt_color, additional_font):
+    font_add = ""
+    if additional_font:
+        font_add += additional_font
+
+    canvas.draw_text(text = text , location =selected_area, color=cur_txt_color, font='Default 13'+ ' ' +font_add)
+
 def main():
 
     sg.theme("Material2")
@@ -90,7 +97,7 @@ def main():
     layout = [ 
 
     [sg.Checkbox('Connect Mode', enable_events=True, key='Connect Mode', background_color=BACKGROUND_COLOR),\
-    sg.Button('Connect'), sg.Checkbox('Link Mode', enable_events=True, key='Link Mode', background_color=BACKGROUND_COLOR), sg.B('Link', size=(8,1)),\
+    sg.Button('Connect'), sg.B('Link', size=(8,1)),\
     sg.Text('', size=(50,1), background_color=BACKGROUND_COLOR),\
     sg.Button('Go To Images'),  \
     sg.Text('Colors:', background_color=BACKGROUND_COLOR)] + [sg.Column([color_identifier_palette(), color_palette()], background_color=BACKGROUND_COLOR)],
@@ -107,17 +114,21 @@ def main():
     point_id = None
     connect = [] #will contain locations of boxes that are to be connected
     selected = [] #will contain loc of temporary selection cursors when in connect mode
+    linked = {} #(tab num, x, y) --> link (tab number)
+    linked_to_text = {} #(tab num, x, y) --> text 
     cur_txt_color = 'white'
     cur_box_color = 'red'
     cur_icon = '-TXT-red-'
     cur_canvas = 1
-    most_recently_visible_canvas = 1 
+    most_recently_visible_canvas = 1
+    linked_was_generated = False
 
     while True:
         event, values = window.read()
 
         if event==sg.WIN_CLOSED:
             break
+
 
         elif isinstance(event, int): #canvas was clicked
             cur_canvas = event
@@ -135,9 +146,17 @@ def main():
                 if len(selected) > 2: # cannot connect more than 2 text boxes at a time -- delete least recent snipping cursor
                     unused_cursor = selected.pop(0) 
                     window[cur_canvas].delete_figure(unused_cursor)
+
+            elif is_approx_in( (event, selected_area[0], selected_area[1] ) ,linked):
+                print("we caught a hot link")
+            print("what youre clicking:", (event, selected_area[0], selected_area[1] ))
             
         elif event=='-IN-':
+            linked_to_text[(cur_canvas, selected_area[0], selected_area[1])] = values['-IN-'] 
             draw_id_text, rect_id, draw_id = write_text_to_canvas( all([draw_id, window['-IN-']]), draw_id, draw_id_text, rect_id, values['-IN-'].upper(), selected_area, cur_txt_color,cur_box_color, window[cur_canvas])
+            #get the text associated with this tab number and location 
+            print(values['-IN-'])
+            print("selected area:", selected_area)
 
         elif event=='Connect':
             connect_selected_text_boxes(connect, selected, window[cur_canvas])
@@ -152,10 +171,24 @@ def main():
         	webbrowser.open(random.choice(URLS))
 
         elif event == '-NEW-TAB-':
+            print("most_recently_visible_canvas in new tab event", most_recently_visible_canvas)
             most_recently_visible_canvas += 1
             window[f'-TAB-{most_recently_visible_canvas}-'].update(visible=True)
             window[f'-TAB-{most_recently_visible_canvas}-'].select()
+
+            if linked_was_generated:
+                print("most_recently_visible_canvas: ", most_recently_visible_canvas)
+                print("link was linked_was_generated")
+                linked_was_generated = False
+                create_text_element(window[most_recently_visible_canvas], linked_to_text[ (cur_canvas, selected_area[0], selected_area[1]) ], (50, 1780), 'blue', 'italic underline' )
      
+        elif event == 'Link':
+            tab_and_location_tup = (cur_canvas, selected_area[0], selected_area[1]) 
+            linked[tab_and_location_tup] = most_recently_visible_canvas + 1 
+            window['-NEW-TAB-'].click() #activate new tab event
+            linked_was_generated = True #identifier to draw a link 
+
+        print(linked)
     window.close()
 
 if __name__ == '__main__':
