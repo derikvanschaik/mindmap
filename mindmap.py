@@ -31,8 +31,8 @@ def color_identifier_palette():
         row.append(sg.T(text, key=f'-TXT-{color}-', size=(6,1), pad=(0,0), background_color=BACKGROUND_COLOR))
     return row
 
-def clear_text(*args, canvas):
-    for figure in args:
+def clear_text(d1,d2,d3, canvas):
+    for figure in [d1,d2,d3]:
         canvas.delete_figure(figure)
 
 def draw_text(text, loc, txt_color, canvas):
@@ -55,12 +55,14 @@ def keep_text_on_canvas(figure_ids, max_col, canvas):
 
 def write_text_to_canvas(already_is_text, draw_id_text, rect_id, draw_id, text, selected_area, cur_txt_color,cur_box_color, canvas):
     if already_is_text: # if user is currently writing text -deletes and updates text
-        clear_text(draw_id, draw_id_text, rect_id, canvas = gtop) 
+        clear_text(draw_id, draw_id_text, rect_id, canvas = canvas) 
+        # print("clearing text")
 
     draw_id_text = canvas.draw_text(text = text , location =selected_area, color=cur_txt_color, font='Default 13')
     rect_id = canvas.draw_rectangle( canvas.get_bounding_box(draw_id_text)[0] , canvas.get_bounding_box(draw_id_text)[1], fill_color=cur_box_color)
     draw_id = canvas.draw_text(text = text , location =selected_area, color=cur_txt_color, font='Default 13')
     keep_text_on_canvas([draw_id, rect_id], MAX_X, canvas)
+    return draw_id_text, rect_id, draw_id
 
 def connect_selected_text_boxes(selected_boxes, selection_cursors, canvas):
     if len(selected_boxes) >= 2:
@@ -73,13 +75,13 @@ def connect_selected_text_boxes(selected_boxes, selection_cursors, canvas):
 def update_color(chosen_color, text_color_dict):
     return chosen_color, text_color_dict[chosen_color]
 
-def make_canvas():
-    return sg.Graph((5000,5000), (0,0),(MAX_X,MAX_Y),background_color="white", enable_events=True)
+def create_canvas(key):
+    return sg.Graph((5000,5000), (0,0),(MAX_X,MAX_Y),background_color="white", enable_events=True, key=key)
 
 def main():
 
     sg.theme("Material2")
-    gtop = make_canvas()
+
      
     layout = [ 
 
@@ -88,10 +90,16 @@ def main():
     sg.Button('Go To Images'),  \
     sg.Text('Colors:', background_color=BACKGROUND_COLOR)] + [sg.Column([color_identifier_palette(), color_palette()], background_color=BACKGROUND_COLOR)],
 
-    [sg.Column([[gtop]], size=(1350,600),scrollable=True)],
+    [sg.TabGroup([[sg.Tab(f"Tab {i} ", [[sg.Column([[ create_canvas(i) ]], size=(1350,575),scrollable=True) ]], key = f"-TAB-{i}-", visible=(i==1)) for i in range(1,30) ]] + [[sg.Button('➕', key='-NEW-TAB-')]], enable_events=True) ] ,
                 [sg.Input('', key='-IN-', enable_events=True, text_color=BACKGROUND_COLOR, background_color=BACKGROUND_COLOR)]
+                ]
 
-        ]
+
+    # [sg.Column([[cur_canvas]], size=(1350,600),scrollable=True)],
+    #             [sg.Input('', key='-IN-', enable_events=True, text_color=BACKGROUND_COLOR, background_color=BACKGROUND_COLOR)]
+
+    #     ]
+
     window = sg.Window('MIMI', layout, background_color=BACKGROUND_COLOR)
      
     # Write text and lines
@@ -103,7 +111,8 @@ def main():
     selected = [] #will contain loc of temporary selection cursors when in connect mode
     cur_txt_color = 'white'
     cur_box_color = 'red'
-    cur_icon = '-TXT-red-' 
+    cur_icon = '-TXT-red-'
+    cur_canvas = 1 
 
     while True:
 
@@ -111,9 +120,10 @@ def main():
         print(event)
 
         if event==sg.WIN_CLOSED:
-            break 
+            break
+
             
-        elif isinstance(event, int):
+        if isinstance(event, int):
             window['-IN-'].update("")
             window['-IN-'].Widget.config(insertbackground=BACKGROUND_COLOR) #for the cursor to not be black 
             window['-IN-'].set_focus()
@@ -125,17 +135,17 @@ def main():
             if values['Connect Mode']:
                 if not selected_area in connect:
                     connect.append(selected_area)
-                selected.append(gtop.draw_image(data=img, location=(selected_area[0]-10, selected_area[1]+8))) #will always need to tweak this when changing canvas size
+                selected.append(window[cur_canvas].draw_image(data=img, location=(selected_area[0]-10, selected_area[1]+8))) #will always need to tweak this when changing canvas size
 
                 if len(selected) > 2:
                     unused_cursor = selected.pop(0) # updated the selected
-                    gtop.delete_figure(unused_cursor)
+                    window[cur_canvas].delete_figure(unused_cursor)
             
-        elif event=='-IN-':
-            write_text_to_canvas( all([draw_id, window['-IN-']]), draw_id, draw_id_text, rect_id, values['-IN-'].upper(), selected_area, cur_txt_color,cur_box_color, gtop)
+        if event=='-IN-':
+            draw_id_text, rect_id, draw_id = write_text_to_canvas( all([draw_id, window['-IN-']]), draw_id, draw_id_text, rect_id, values['-IN-'].upper(), selected_area, cur_txt_color,cur_box_color, window[cur_canvas])
 
         elif event=='Connect':
-            connect_selected_text_boxes(connect, selected, gtop)
+            connect_selected_text_boxes(connect, selected, window[cur_canvas])
 
         elif event in BOX_COLORS: #updating textbox colors 
             cur_box_color, cur_txt_color = update_color(event, BOX_COLORS_TO_TEXT)
@@ -146,6 +156,12 @@ def main():
 
         elif event=='Go To Images':
         	webbrowser.open(random.choice(URLS))
+
+        elif event == '-NEW-TAB-':
+            cur_canvas += 1
+            window[f'-TAB-{cur_canvas}-'].update(visible=True)
+            window[f'-TAB-{cur_canvas}-'].select()
+            
 
      
     window.close()
