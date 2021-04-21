@@ -15,14 +15,12 @@ MAX_X, MAX_Y = 1800, 1800
 BACKGROUND_COLOR = "gainsboro"
 URLS = ["https://docs.python.org/3/library/webbrowser.html", "http://www.python.org", "https://stackoverflow.com/questions/4302027/how-to-open-a-url-in-python", "https://codingbat.com/java"]
 
+def colored_button(color, text_color):
+    return sg.B('', key=color, size=(5,1), pad=(0,0), button_color=(text_color, color) )
+
 def color_palette():
-    row = [] 
-    for color in BOX_COLORS:
-        text_color = 'white'
-        if color in ('yellow', 'pink', 'orange'):
-            text_color = 'black'
-        row.append(sg.B('', key='-UPDATE-TEXT-BOX-COLOR-', size=(5,1), pad=(0,0), button_color=(text_color, color) ))
-    return row
+    black = ('yellow', 'pink', 'orange')
+    return [ colored_button(color, 'black') if color in black else colored_button(color, 'white') for color in BOX_COLORS]
 
 def color_identifier_palette():
     row = [] 
@@ -55,6 +53,15 @@ def keep_text_on_canvas(figure_ids, max_col, canvas):
         for figure in figure_ids:
             canvas.move_figure(figure, x_delta, 0)
 
+def write_text_to_canvas(already_is_text, draw_id_text, rect_id, draw_id, text, selected_area, cur_txt_color,cur_box_color, canvas):
+    if already_is_text: # if user is currently writing text -deletes and updates text
+        clear_text(draw_id, draw_id_text, rect_id, canvas = gtop) 
+
+    draw_id_text = canvas.draw_text(text = text , location =selected_area, color=cur_txt_color, font='Default 13')
+    rect_id = canvas.draw_rectangle( canvas.get_bounding_box(draw_id_text)[0] , canvas.get_bounding_box(draw_id_text)[1], fill_color=cur_box_color)
+    draw_id = canvas.draw_text(text = text , location =selected_area, color=cur_txt_color, font='Default 13')
+    keep_text_on_canvas([draw_id, rect_id], MAX_X, canvas)
+
 def connect_selected_text_boxes(selected_boxes, selection_cursors, canvas):
     if len(selected_boxes) >= 2:
         line_id = canvas.draw_line(selected_boxes[-1], selected_boxes[-2], width=2)
@@ -63,6 +70,8 @@ def connect_selected_text_boxes(selected_boxes, selection_cursors, canvas):
         canvas.delete_figure(cursor)
     selection_cursors.clear()
 
+def update_color(chosen_color, text_color_dict):
+    return chosen_color, text_color_dict[chosen_color]
 
 def main():
 
@@ -70,14 +79,16 @@ def main():
     gtop = sg.Graph((5000,5000), (0,0),(MAX_X,MAX_Y),background_color="white", enable_events=True) #original: (1350,600)
      
     layout = [ 
+
     [sg.Checkbox('Connect Mode', enable_events=True, key='Connect Mode', background_color=BACKGROUND_COLOR),\
-    sg.Button('Connect'), sg.Text('', size=(50,1), background_color=BACKGROUND_COLOR), sg.Button('http://Take Me There', size=(15,2), button_color = ('blue', 'gainsboro'),font="default 15 italic underline"), \
+    sg.Button('Connect'), sg.Text('', size=(50,1), background_color=BACKGROUND_COLOR),\
+    sg.Button('Go To Images'),  \
     sg.Text('Colors:', background_color=BACKGROUND_COLOR)] + [sg.Column([color_identifier_palette(), color_palette()], background_color=BACKGROUND_COLOR)],
-    # [sg.Input('', key='-IN-', enable_events=True, text_color='black', background_color='black')], 
-    
-                [sg.Column([[gtop]], size=(1350,600),scrollable=True)],
+
+    [sg.Column([[gtop]], size=(1350,600),scrollable=True)],
                 [sg.Input('', key='-IN-', enable_events=True, text_color=BACKGROUND_COLOR, background_color=BACKGROUND_COLOR)]
-                ]
+
+        ]
     window = sg.Window('MIMI', layout, background_color=BACKGROUND_COLOR)
      
     # Write text and lines
@@ -94,6 +105,7 @@ def main():
     while True:
 
         event, values = window.read()
+        print(event)
 
         if event==sg.WIN_CLOSED:
             break 
@@ -117,29 +129,20 @@ def main():
                     gtop.delete_figure(unused_cursor)
             
         elif event=='-IN-':
-            if draw_id and window['-IN-']: # if user is currently writing text -deletes and updates text
-                clear_text(draw_id, draw_id_text, rect_id, canvas = gtop) 
-
-            draw_id_text = gtop.draw_text(text = values['-IN-'].upper() , location =selected_area, color=cur_txt_color, font='Default 13')
-            rect_id = gtop.draw_rectangle( gtop.get_bounding_box(draw_id_text)[0] , gtop.get_bounding_box(draw_id_text)[1], fill_color=cur_box_color)
-            draw_id = gtop.draw_text(text = values['-IN-'].upper() , location =selected_area, color=cur_txt_color, font='Default 13')
-            keep_text_on_canvas([draw_id, rect_id], MAX_X, gtop)
+            write_text_to_canvas( all([draw_id, window['-IN-']]), draw_id, draw_id_text, rect_id, values['-IN-'].upper(), selected_area, cur_txt_color,cur_box_color, gtop)
 
         elif event=='Connect':
             connect_selected_text_boxes(connect, selected, gtop)
 
         elif event in BOX_COLORS: #updating textbox colors 
+            cur_box_color, cur_txt_color = update_color(event, BOX_COLORS_TO_TEXT)
             window[cur_icon].update("")
             cur_icon = f'-TXT-{event}-'
             window[cur_icon].update("▼")
-            window[cur_box_color].update(disabled=False)
-            cur_txt_color = BOX_COLORS_TO_TEXT[event]
-            cur_box_color = event
-            window[event].update(disabled=True)
 
-        elif event=='http://Take Me There':
+
+        elif event=='Go To Images':
         	webbrowser.open(random.choice(URLS))
-        	window["http://Take Me There"].update(button_color=("purple", "gainsboro") )
 
      
     window.close()
