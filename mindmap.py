@@ -31,6 +31,11 @@ def color_identifier_palette():
         row.append(sg.T(text, key=f'-TXT-{color}-', size=(6,1), pad=(0,0), background_color=BACKGROUND_COLOR))
     return row
 
+def get_user_text(text_input_element):
+    text_input_element.update("")
+    text_input_element.Widget.config(insertbackground=BACKGROUND_COLOR) #for the cursor to not be black 
+    text_input_element.set_focus()
+
 def clear_text(d1,d2,d3, canvas):
     for figure in [d1,d2,d3]:
         canvas.delete_figure(figure)
@@ -90,15 +95,10 @@ def main():
     sg.Button('Go To Images'),  \
     sg.Text('Colors:', background_color=BACKGROUND_COLOR)] + [sg.Column([color_identifier_palette(), color_palette()], background_color=BACKGROUND_COLOR)],
 
-    [sg.TabGroup([[sg.Tab(f"Tab {i} ", [[sg.Column([[ create_canvas(i) ]], size=(1350,575),scrollable=True) ]], key = f"-TAB-{i}-", visible=(i==1)) for i in range(1,30) ]] + [[sg.Button('➕', key='-NEW-TAB-')]], enable_events=True) ] ,
+    [sg.TabGroup([[sg.Tab(f"Tab {i} ", [[sg.Column([[ create_canvas(i) ]], size=(1350,575),scrollable=True) ]], key = f"-TAB-{i}-", visible=(i==1)) for i in range(1,30) ]] + [[sg.Button('➕', key='-NEW-TAB-')]]) ] ,
                 [sg.Input('', key='-IN-', enable_events=True, text_color=BACKGROUND_COLOR, background_color=BACKGROUND_COLOR)]
                 ]
 
-
-    # [sg.Column([[cur_canvas]], size=(1350,600),scrollable=True)],
-    #             [sg.Input('', key='-IN-', enable_events=True, text_color=BACKGROUND_COLOR, background_color=BACKGROUND_COLOR)]
-
-    #     ]
 
     window = sg.Window('MIMI', layout, background_color=BACKGROUND_COLOR)
      
@@ -112,21 +112,19 @@ def main():
     cur_txt_color = 'white'
     cur_box_color = 'red'
     cur_icon = '-TXT-red-'
-    cur_canvas = 1 
+    cur_canvas = 1
 
     while True:
 
         event, values = window.read()
-        print(event)
 
         if event==sg.WIN_CLOSED:
             break
 
             
-        if isinstance(event, int):
-            window['-IN-'].update("")
-            window['-IN-'].Widget.config(insertbackground=BACKGROUND_COLOR) #for the cursor to not be black 
-            window['-IN-'].set_focus()
+        elif isinstance(event, int): #canvas was clicked
+            cur_canvas = event
+            get_user_text(window['-IN-'])
             selected_area = values[event]
             draw_id = None 
             rect_id = None
@@ -135,13 +133,13 @@ def main():
             if values['Connect Mode']:
                 if not selected_area in connect:
                     connect.append(selected_area)
-                selected.append(window[cur_canvas].draw_image(data=img, location=(selected_area[0]-10, selected_area[1]+8))) #will always need to tweak this when changing canvas size
+                selected.append(window[cur_canvas].draw_image(data=img, location=(selected_area[0]-10, selected_area[1]+8))) #draws snipping cursor
 
-                if len(selected) > 2:
-                    unused_cursor = selected.pop(0) # updated the selected
+                if len(selected) > 2: # cannot connect more than 2 text boxes at a time -- delete least recent snipping cursor
+                    unused_cursor = selected.pop(0) 
                     window[cur_canvas].delete_figure(unused_cursor)
             
-        if event=='-IN-':
+        elif event=='-IN-':
             draw_id_text, rect_id, draw_id = write_text_to_canvas( all([draw_id, window['-IN-']]), draw_id, draw_id_text, rect_id, values['-IN-'].upper(), selected_area, cur_txt_color,cur_box_color, window[cur_canvas])
 
         elif event=='Connect':
@@ -161,8 +159,9 @@ def main():
             cur_canvas += 1
             window[f'-TAB-{cur_canvas}-'].update(visible=True)
             window[f'-TAB-{cur_canvas}-'].select()
-            
 
+
+            
      
     window.close()
 
