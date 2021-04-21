@@ -90,6 +90,16 @@ def create_text_element(canvas, text, selected_area, cur_txt_color, additional_f
 
     canvas.draw_text(text = text , location =selected_area, color=cur_txt_color, font='Default 13'+ ' ' +font_add)
 
+def is_approx_in(search_tup, dict):
+    y_threshold = 7
+    x_threshold = 25
+    for loc_tup in dict.keys():
+        if search_tup[0] == loc_tup[0] and abs(search_tup[1] - loc_tup[1]) <= x_threshold and abs(search_tup[2] - loc_tup[2]) <= y_threshold:
+            return loc_tup
+
+    return None #could not find a match
+
+
 def main():
 
     sg.theme("Material2")
@@ -122,6 +132,7 @@ def main():
     cur_canvas = 1
     most_recently_visible_canvas = 1
     linked_was_generated = False
+    last_tab = 1 
 
     while True:
         event, values = window.read()
@@ -137,6 +148,7 @@ def main():
             draw_id = None 
             rect_id = None
             draw_id_text = None
+            is_hot_link = is_approx_in( (event, selected_area[0], selected_area[1] ) ,linked)
 
             if values['Connect Mode']:
                 if not selected_area in connect:
@@ -147,9 +159,10 @@ def main():
                     unused_cursor = selected.pop(0) 
                     window[cur_canvas].delete_figure(unused_cursor)
 
-            elif is_approx_in( (event, selected_area[0], selected_area[1] ) ,linked):
-                print("we caught a hot link")
+            if is_hot_link:
+                window[f'-TAB-{linked[is_hot_link]}-'].select()
             print("what youre clicking:", (event, selected_area[0], selected_area[1] ))
+            print("linked dict: ", linked)
             
         elif event=='-IN-':
             linked_to_text[(cur_canvas, selected_area[0], selected_area[1])] = values['-IN-'] 
@@ -177,12 +190,13 @@ def main():
             window[f'-TAB-{most_recently_visible_canvas}-'].select()
 
             if linked_was_generated:
-                print("most_recently_visible_canvas: ", most_recently_visible_canvas)
-                print("link was linked_was_generated")
                 linked_was_generated = False
                 create_text_element(window[most_recently_visible_canvas], linked_to_text[ (cur_canvas, selected_area[0], selected_area[1]) ], (50, 1780), 'blue', 'italic underline' )
+                linked[ (most_recently_visible_canvas, 50, 1780 ) ] = cur_canvas #will this do the trick? 
+
      
         elif event == 'Link':
+
             tab_and_location_tup = (cur_canvas, selected_area[0], selected_area[1]) 
             linked[tab_and_location_tup] = most_recently_visible_canvas + 1 
             window['-NEW-TAB-'].click() #activate new tab event
