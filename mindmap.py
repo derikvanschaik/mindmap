@@ -11,6 +11,7 @@ BOX_COLORS_TO_TEXT = {
 'red':'white', 'green':'white', 'purple':'white', 'blue':'white',
 'orange':'black', 'pink':'black', 'yellow':'black'
                      }
+MAX_X, MAX_Y = 1800, 1800 
 BACKGROUND_COLOR = "gainsboro"
 URLS = ["https://docs.python.org/3/library/webbrowser.html", "http://www.python.org", "https://stackoverflow.com/questions/4302027/how-to-open-a-url-in-python", "https://codingbat.com/java"]
 
@@ -20,7 +21,7 @@ def color_palette():
         text_color = 'white'
         if color in ('yellow', 'pink', 'orange'):
             text_color = 'black'
-        row.append(sg.B('', key=color, size=(5,1), pad=(0,0), button_color=(text_color, color) ))
+        row.append(sg.B('', key='-UPDATE-TEXT-BOX-COLOR-', size=(5,1), pad=(0,0), button_color=(text_color, color) ))
     return row
 
 def color_identifier_palette():
@@ -32,10 +33,41 @@ def color_identifier_palette():
         row.append(sg.T(text, key=f'-TXT-{color}-', size=(6,1), pad=(0,0), background_color=BACKGROUND_COLOR))
     return row
 
+def clear_text(*args, canvas):
+    for figure in args:
+        canvas.delete_figure(figure)
+
+def draw_text(text, loc, txt_color, canvas):
+    return canvas.draw_text( text = text, location = loc, color = txt_color, font = "default 13")
+
+def keep_text_on_canvas(figure_ids, max_col, canvas):
+    coordinate = canvas.get_bounding_box(figure_ids[0])[0]
+    x = coordinate[0]
+    x_delta = None
+
+    if x <= 0:
+        x_delta = -x
+
+    elif x>=max_col:
+        x_delta = -(x-1800)
+    
+    if x_delta:
+        for figure in figure_ids:
+            canvas.move_figure(figure, x_delta, 0)
+
+def connect_selected_text_boxes(selected_boxes, selection_cursors, canvas):
+    if len(selected_boxes) >= 2:
+        line_id = canvas.draw_line(selected_boxes[-1], selected_boxes[-2], width=2)
+        canvas.SendFigureToBack(line_id)
+    for cursor in selection_cursors: 
+        canvas.delete_figure(cursor)
+    selection_cursors.clear()
+
+
 def main():
 
     sg.theme("Material2")
-    gtop = sg.Graph((5000,5000), (0,0),(1800,1800),background_color="white", enable_events=True) #original: (1350,600)
+    gtop = sg.Graph((5000,5000), (0,0),(MAX_X,MAX_Y),background_color="white", enable_events=True) #original: (1350,600)
      
     layout = [ 
     [sg.Checkbox('Connect Mode', enable_events=True, key='Connect Mode', background_color=BACKGROUND_COLOR),\
@@ -53,8 +85,8 @@ def main():
     last_selected = (0,0)
     draw_id = None
     point_id = None
-    connect = []
-    selected = []
+    connect = [] #will contain locations of boxes that are to be connected
+    selected = [] #will contain loc of temporary selection cursors when in connect mode
     cur_txt_color = 'white'
     cur_box_color = 'red'
     cur_icon = '-TXT-red-' 
@@ -62,16 +94,16 @@ def main():
     while True:
 
         event, values = window.read()
-        # print("this is the event",event,values)
+
         if event==sg.WIN_CLOSED:
             break 
             
-        if isinstance(event, int):
+        elif isinstance(event, int):
             window['-IN-'].update("")
             window['-IN-'].Widget.config(insertbackground=BACKGROUND_COLOR) #for the cursor to not be black 
             window['-IN-'].set_focus()
             selected_area = values[event]
-            draw_id = None #so that it doesn't delete already written things on canvas
+            draw_id = None 
             rect_id = None
             draw_id_text = None
 
@@ -79,42 +111,24 @@ def main():
                 if not selected_area in connect:
                     connect.append(selected_area)
                 selected.append(gtop.draw_image(data=img, location=(selected_area[0]-10, selected_area[1]+8))) #will always need to tweak this when changing canvas size
+
                 if len(selected) > 2:
                     unused_cursor = selected.pop(0) # updated the selected
                     gtop.delete_figure(unused_cursor)
-
             
-        if event=='-IN-':
-            if draw_id and window['-IN-']:
-                gtop.delete_figure(draw_id)
-                gtop.delete_figure(draw_id_text)
-                gtop.delete_figure(rect_id)
-           
-            draw_id_text = gtop.draw_text(text = f" {values['-IN-'].upper()}{' '}", location =selected_area, color=cur_txt_color, font='Default 13')
-            rect_id = gtop.draw_rectangle( gtop.get_bounding_box(draw_id_text)[0], gtop.get_bounding_box(draw_id_text)[1], fill_color=cur_box_color)
-            draw_id = gtop.draw_text(text = f" {values['-IN-'].upper()}{' '} ", location =selected_area, color=cur_txt_color, font='Default 13')
-            #prevents text from going off screen -- need to do this but for colliding elements
-            coordinates = gtop.get_bounding_box(draw_id)
-            for coordinate in coordinates:
-                x = coordinate[0]
-                if x <= 0:
-                    gtop.move_figure(draw_id, -x -1, 0)
-                    gtop.move_figure(rect_id, -x -1, 0)
-                if x>=1800:
-                    gtop.move_figure(draw_id, -(x-1800), 0)
-                    gtop.move_figure(rect_id, -(x-1800), 0)
+        elif event=='-IN-':
+            if draw_id and window['-IN-']: # if user is currently writing text -deletes and updates text
+                clear_text(draw_id, draw_id_text, rect_id, canvas = gtop) 
 
+            draw_id_text = gtop.draw_text(text = values['-IN-'].upper() , location =selected_area, color=cur_txt_color, font='Default 13')
+            rect_id = gtop.draw_rectangle( gtop.get_bounding_box(draw_id_text)[0] , gtop.get_bounding_box(draw_id_text)[1], fill_color=cur_box_color)
+            draw_id = gtop.draw_text(text = values['-IN-'].upper() , location =selected_area, color=cur_txt_color, font='Default 13')
+            keep_text_on_canvas([draw_id, rect_id], MAX_X, gtop)
 
-        if event=='Connect':
-            if len(connect) >= 2:
-                line_id = gtop.draw_line(connect[-1], connect[-2], width=2)
-                gtop.SendFigureToBack(line_id)
-            for cursor in selected: 
-                gtop.delete_figure(cursor)
-            selected.clear()
+        elif event=='Connect':
+            connect_selected_text_boxes(connect, selected, gtop)
 
-        if event in BOX_COLORS:
-            # print('here')
+        elif event in BOX_COLORS: #updating textbox colors 
             window[cur_icon].update("")
             cur_icon = f'-TXT-{event}-'
             window[cur_icon].update("▼")
@@ -123,7 +137,7 @@ def main():
             cur_box_color = event
             window[event].update(disabled=True)
 
-        if event=='http://Take Me There':
+        elif event=='http://Take Me There':
         	webbrowser.open(random.choice(URLS))
         	window["http://Take Me There"].update(button_color=("purple", "gainsboro") )
 
