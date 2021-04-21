@@ -110,7 +110,7 @@ def main():
     sg.Button('Connect'), sg.B('Link', size=(8,1)),\
     sg.Text('', size=(50,1), background_color=BACKGROUND_COLOR),\
     sg.Button('Go To Images'),  \
-    sg.Text('Colors:', background_color=BACKGROUND_COLOR)] + [sg.Column([color_identifier_palette(), color_palette()], background_color=BACKGROUND_COLOR)],
+    sg.Text('Colors:', background_color=BACKGROUND_COLOR)] + [sg.Column([color_identifier_palette(), color_palette()], background_color=BACKGROUND_COLOR)], #canvas change here
 
     [sg.TabGroup([[sg.Tab(f"Tab {i} ", [[sg.Column([[ create_canvas(i) ]], size=(1350,575),scrollable=True) ]], key = f"-TAB-{i}-", visible=(i==1)) for i in range(1,30) ]] + [[sg.Button('➕', key='-NEW-TAB-')]]) ] ,
                 [sg.Input('', key='-IN-', enable_events=True, text_color=BACKGROUND_COLOR, background_color=BACKGROUND_COLOR)]
@@ -160,16 +160,14 @@ def main():
                     window[cur_canvas].delete_figure(unused_cursor)
 
             if is_hot_link:
-                window[f'-TAB-{linked[is_hot_link]}-'].select()
-            print("what youre clicking:", (event, selected_area[0], selected_area[1] ))
-            print("linked dict: ", linked)
+                window[f'-TAB-{linked[is_hot_link]}-'].select() #go to the hot link 
             
         elif event=='-IN-':
             linked_to_text[(cur_canvas, selected_area[0], selected_area[1])] = values['-IN-'] 
             draw_id_text, rect_id, draw_id = write_text_to_canvas( all([draw_id, window['-IN-']]), draw_id, draw_id_text, rect_id, values['-IN-'].upper(), selected_area, cur_txt_color,cur_box_color, window[cur_canvas])
             #get the text associated with this tab number and location 
-            print(values['-IN-'])
-            print("selected area:", selected_area)
+            # print(values['-IN-'])
+            # print("selected area:", selected_area)
 
         elif event=='Connect':
             connect_selected_text_boxes(connect, selected, window[cur_canvas])
@@ -192,17 +190,17 @@ def main():
             if linked_was_generated:
                 linked_was_generated = False
                 create_text_element(window[most_recently_visible_canvas], linked_to_text[ (cur_canvas, selected_area[0], selected_area[1]) ], (50, 1780), 'blue', 'italic underline' )
-                linked[ (most_recently_visible_canvas, 50, 1780 ) ] = cur_canvas #will this do the trick? 
+                linked[ (most_recently_visible_canvas, 50, 1780 ) ] = cur_canvas # back link is created 
 
      
         elif event == 'Link':
 
             tab_and_location_tup = (cur_canvas, selected_area[0], selected_area[1]) 
-            linked[tab_and_location_tup] = most_recently_visible_canvas + 1 
+            linked[tab_and_location_tup] = most_recently_visible_canvas + 1 #forward link is created 
             window['-NEW-TAB-'].click() #activate new tab event
             linked_was_generated = True #identifier to draw a link 
 
-        print(linked)
+        # print(linked)
     window.close()
 
 if __name__ == '__main__':
