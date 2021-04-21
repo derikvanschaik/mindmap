@@ -61,7 +61,6 @@ def keep_text_on_canvas(figure_ids, max_col, canvas):
 def write_text_to_canvas(already_is_text, draw_id_text, rect_id, draw_id, text, selected_area, cur_txt_color,cur_box_color, canvas):
     if already_is_text: # if user is currently writing text -deletes and updates text
         clear_text(draw_id, draw_id_text, rect_id, canvas = canvas) 
-        # print("clearing text")
 
     draw_id_text = canvas.draw_text(text = text , location =selected_area, color=cur_txt_color, font='Default 13')
     rect_id = canvas.draw_rectangle( canvas.get_bounding_box(draw_id_text)[0] , canvas.get_bounding_box(draw_id_text)[1], fill_color=cur_box_color)
@@ -73,6 +72,7 @@ def connect_selected_text_boxes(selected_boxes, selection_cursors, canvas):
     if len(selected_boxes) >= 2:
         line_id = canvas.draw_line(selected_boxes[-1], selected_boxes[-2], width=2)
         canvas.SendFigureToBack(line_id)
+
     for cursor in selection_cursors: 
         canvas.delete_figure(cursor)
     selection_cursors.clear()
@@ -87,22 +87,20 @@ def main():
 
     sg.theme("Material2")
 
-     
     layout = [ 
 
     [sg.Checkbox('Connect Mode', enable_events=True, key='Connect Mode', background_color=BACKGROUND_COLOR),\
-    sg.Button('Connect'), sg.Text('', size=(50,1), background_color=BACKGROUND_COLOR),\
+    sg.Button('Connect'), sg.Checkbox('Link Mode', enable_events=True, key='Link Mode', background_color=BACKGROUND_COLOR), sg.B('Link', size=(8,1)),\
+    sg.Text('', size=(50,1), background_color=BACKGROUND_COLOR),\
     sg.Button('Go To Images'),  \
     sg.Text('Colors:', background_color=BACKGROUND_COLOR)] + [sg.Column([color_identifier_palette(), color_palette()], background_color=BACKGROUND_COLOR)],
 
     [sg.TabGroup([[sg.Tab(f"Tab {i} ", [[sg.Column([[ create_canvas(i) ]], size=(1350,575),scrollable=True) ]], key = f"-TAB-{i}-", visible=(i==1)) for i in range(1,30) ]] + [[sg.Button('➕', key='-NEW-TAB-')]]) ] ,
                 [sg.Input('', key='-IN-', enable_events=True, text_color=BACKGROUND_COLOR, background_color=BACKGROUND_COLOR)]
-                ]
-
+    ]
 
     window = sg.Window('MIMI', layout, background_color=BACKGROUND_COLOR)
      
-    # Write text and lines
     selected_area = (0,0)
     last_selected = (0,0)
     draw_id = None
@@ -113,15 +111,14 @@ def main():
     cur_box_color = 'red'
     cur_icon = '-TXT-red-'
     cur_canvas = 1
+    most_recently_visible_canvas = 1 
 
     while True:
-
         event, values = window.read()
 
         if event==sg.WIN_CLOSED:
             break
 
-            
         elif isinstance(event, int): #canvas was clicked
             cur_canvas = event
             get_user_text(window['-IN-'])
@@ -151,17 +148,13 @@ def main():
             cur_icon = f'-TXT-{event}-'
             window[cur_icon].update("▼")
 
-
         elif event=='Go To Images':
         	webbrowser.open(random.choice(URLS))
 
         elif event == '-NEW-TAB-':
-            cur_canvas += 1
-            window[f'-TAB-{cur_canvas}-'].update(visible=True)
-            window[f'-TAB-{cur_canvas}-'].select()
-
-
-            
+            most_recently_visible_canvas += 1
+            window[f'-TAB-{most_recently_visible_canvas}-'].update(visible=True)
+            window[f'-TAB-{most_recently_visible_canvas}-'].select()
      
     window.close()
 
