@@ -47,7 +47,7 @@ def keep_text_on_canvas(figure_ids, max_col, canvas):
         x_delta = -x
 
     elif x>=max_col:
-        x_delta = -(x-1800)
+        x_delta = -(x-max_col)
     
     if x_delta:
         for figure in figure_ids:
@@ -73,10 +73,13 @@ def connect_selected_text_boxes(selected_boxes, selection_cursors, canvas):
 def update_color(chosen_color, text_color_dict):
     return chosen_color, text_color_dict[chosen_color]
 
+def make_canvas():
+    return sg.Graph((5000,5000), (0,0),(MAX_X,MAX_Y),background_color="white", enable_events=True)
+
 def main():
 
     sg.theme("Material2")
-    gtop = sg.Graph((5000,5000), (0,0),(MAX_X,MAX_Y),background_color="white", enable_events=True) #original: (1350,600)
+    gtop = make_canvas()
      
     layout = [ 
 
